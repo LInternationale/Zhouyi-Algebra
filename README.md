@@ -2,7 +2,7 @@
 
 > 练得身形似鹤形，千株松下两函经；我来问道无余说，云在青天水在瓶。
 
-**Zhouyi-Algebra** 是一个基于《周易》六十四卦体系构建的 C11 大数代数运算库与梅森素数推演系统。本项目摒弃了传统的二进制/十进制大数底层，转而采用“卦（Gua）”作为基本数据单元。在这里，每一次进位都是阴阳的交替，每一次取模都是天机的流转。
+**Zhouyi-Algebra** 是一个基于《周易》六十四卦体系构建的 C11 大数代数运算库与梅森素数推演系统。本项目摒弃了传统的二进制/十进制大数底层，转而采用“卦（gua）”作为基本数据单元。在这里，每一次进位都是阴阳的交替，每一次取模都是天机的流转。
 
 ---
 
@@ -38,7 +38,7 @@ make
 
 ---
 
-## 两函经 (API)
+## 两函经 API
 
 ### 1. 易理代数核心 (`zhouyi_algebra.h`)
 
@@ -47,22 +47,25 @@ make
 #### 基础卦象与易理变换
 | 方法 | 易理概念 | 释义 |
 | :--- | :--- | :--- |
-| `make_gua(val)` | 起卦 | 从 `unsigned char` 构造一个 6-bit 的单卦结构体。 |
-| `cuo(gua a)` | 错卦 | 阴阳爻互变（按位取反）。 |
-| `zong(gua a)` | 综卦 | 卦象上下颠倒（位逆序）。 |
-| `hu(gua a)` | 互卦 | 取原卦二三四爻为下卦，三四五爻为上卦重组。 |
-| `jiao(gua a)` | 交卦 | 上下两卦位置互换。 |
-| `bian(gua a, yao)` | 变卦 | 动爻生变（指定特定爻位进行翻转）。 |
-| `get_xiang_zhuan()` | 观象玩辞 | 传入卦值，返回对应的《易经·象传》原文（如“天行健…”）。 |
+| `gua make_gua(unsigned char val)` | 起卦 | 从 `unsigned char` 构造一个 6-bit 的单卦结构体。 |
+| `gua cuo(gua a)` | 错卦 | 阴阳爻互变（按位取反）。 |
+| `gua zong(gua a)` | 综卦 | 卦象上下颠倒（位逆序）。 |
+| `gua hu(gua a)` | 互卦 | 取原卦二三四爻为下卦，三四五爻为上卦重组。 |
+| `gua jiao(gua a)` | 交卦 | 上下两卦位置互换。 |
+| `gua bian(gua a, yao)` | 变卦 | 动爻生变（指定特定爻位进行翻转）。 |
+| `const char* get_xiang_zhuan(unsigned char val)` | 观象玩辞 | 传入卦值，返回对应的《易经·象传》原文（如“天行健…”）。 |
 
 #### 大衍之数运算
 | 方法 | 功能描述 | 说明 |
 | :--- | :--- | :--- |
-| `big_gua_from_string()` | 字符化数 | 将十进制字符串解析并转换为 Base-64 的卦象大数。 |
-| `big_gua_to_string()` | 数化字符 | 将卦象大数格式化回十进制字符串输出。需要手动释放内存。 |
-| `big_gua_add()` | 大衍相加 | 大数加法，处理 64 进制的阴阳进位。 |
-| `big_gua_mul()` | 大衍相乘 | 大数乘法，支持正负号（阴阳）的自动推导与位数动态扩展。 |
-| `big_gua_cmp()` | 大数比对 | 比较两个卦象大数的绝对值大小。 |
+| `big_gua big_gua_from_string(const char* str)` | 字符化数 | 将十进制字符串解析并转换为 Base-64 的卦象大数。 |
+| `char* big_gua_to_string(big_gua bg)` | 数化字符 | 将卦象大数格式化回十进制字符串输出。需要手动释放内存。 |
+| `big_gua big_gua_add(big_gua a, big_gua b)` | 大衍相加 | 大数加法，处理 64 进制的阴阳进位。 |
+| `big_gua big_gua_mul(big_gua a, big_gua b)` | 大衍相乘 | 大数乘法，支持正负号（阴阳）的自动推导与位数动态扩展。 |
+| `big_gua big_gua_div(big_gua a, big_gua b)` | 大衍整除 | 大数除法，支持正负号（阴阳）的自动推导。 |
+| `big_gua big_gua_mod(big_gua a, big_gua b)` | 大衍取模 | 大数取模，由被除数决定正负号。 |
+| `void print_big_gua_tight(big_gua bg)` | 展现卦象 | 使用Unicode进行八进制输出。 |
+| `int big_gua_unsigned_cmp(big_gua a, big_gua b)` | 大数比对 | 比较两个卦象大数的绝对值大小。 |
 
 ### 2. 沉浸式起卦系统 (`suangua.h`)
 
@@ -70,9 +73,7 @@ make
 
 | 方法 | 功能描述 | 说明 |
 | :--- | :--- | :--- |
-| `init_audio()` | 请玉磬 | 初始化 SDL2 音频子系统，加载 `qing.wav`。若文件缺失，则说明“玉磬被严嵩贪没了”。 |
-| `cleanup_audio()` | 送玉磬 | 释放音频资源，关闭 SDL2 子系统，结束仪式。 |
-| `divine_half(name)` | 步罡踏斗 | 结合 `rand()` 与 `SLEEP()`，在玉磬清音中动态生成半个卦象。 |
+| `gua suan_gua()` | 步罡踏斗演卦 | 很有仪式感的返回一个随机的卦象。 |
 
 ---
 
