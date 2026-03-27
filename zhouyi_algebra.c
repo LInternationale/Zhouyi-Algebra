@@ -7,7 +7,7 @@
 #include <string.h>
 #include <omp.h>
 
-#define KARATSUBA_THRESHOLD 32
+#define KARATSUBA_THRESHOLD 128
 
 #ifdef _WIN32
 #include <windows.h>
