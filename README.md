@@ -1,5 +1,4 @@
-# ☯️
-# Zhouyi-Algebra 周易代数 / JiajingOS 嘉靖OS
+# ☯️ Zhouyi-Algebra 周易代数 / JiajingOS 嘉靖OS
 
 > 练得身形似鹤形，千株松下两函经；我来问道无余说，云在青天水在瓶。
 
