@@ -7,6 +7,8 @@
 #include <string.h>
 #include <omp.h>
 
+#define KARATSUBA_THRESHOLD 32
+
 #ifdef _WIN32
 #include <windows.h>
 #define SLEEP(x) Sleep((x) * 1000)
@@ -561,97 +563,59 @@ big_gua big_gua_trim(big_gua a) {
     return res;
 }
 
-big_gua big_gua_mul(big_gua a, big_gua b) {
-    int sign_a = a.guas[0].yinyang;
-    int sign_b = b.guas[0].yinyang;
-    int result_negative = sign_a ^ sign_b;
-
-    big_gua abs_a = big_gua_abs(a);
-    big_gua abs_b = big_gua_abs(b);
-
-    int len_a = abs_a.len;
-    int len_b = abs_b.len;
-    int res_len = len_a + len_b + 1;
-
-    unsigned int *acc = (unsigned int *) calloc(res_len, sizeof(unsigned int));
-
-#pragma omp parallel
-    {
-        unsigned int *local_acc = (unsigned int *) calloc(res_len, sizeof(unsigned int));
-#pragma omp for
-        for (int i = 0; i < len_a; i++) {
-            unsigned char va = get_val(abs_a.guas[len_a - 1 - i]);
-            for (int j = 0; j < len_b; j++) {
-                unsigned char vb = get_val(abs_b.guas[len_b - 1 - j]);
-                local_acc[i + j] += (unsigned int) va * vb;
-            }
+static big_gua big_gua_slice(big_gua a, int start, int slice_len) {
+    big_gua res;
+    res.len = slice_len;
+    res.guas = (gua *)calloc(slice_len, sizeof(gua));
+    for (int i = 0; i < slice_len; i++) {
+        int src = start + i;
+        if (src >= 0 && src < a.len) {
+            res.guas[i] = a.guas[src];
+        } else {
+            res.guas[i] = make_gua(0);
         }
-
-
-#pragma omp critical
-        {
-            for (int k = 0; k < res_len; k++) {
-                acc[k] += local_acc[k];
-            }
-        }
-
-        free(local_acc);
     }
+    res.guas[0].yinyang = 0;
+    return res;
+}
 
-
-    for (int i = 0; i < res_len - 1; i++) {
-        acc[i + 1] += acc[i] >> 6;
-        acc[i] &= 0x3F;
+static big_gua big_gua_shift_left(big_gua a, int shift) {
+    if (shift <= 0) return big_gua_copy(a);
+    big_gua res;
+    res.len = a.len + shift;
+    res.guas = (gua *)calloc(res.len, sizeof(gua));
+    for (int i = 0; i < a.len; i++) {
+        res.guas[i] = a.guas[i];
     }
+    for (int i = a.len; i < res.len; i++) {
+        res.guas[i] = make_gua(0);
+    }
+    res.guas[0].yinyang = a.guas[0].yinyang;
+    return res;
+}
+
+static big_gua big_gua_unsigned_add(big_gua a, big_gua b) {
+    int max_len = (a.len > b.len) ? a.len : b.len;
+    int res_len = max_len + 1;
 
     big_gua res;
     res.len = res_len;
-    res.guas = (gua *) calloc(res_len, sizeof(gua));
+    res.guas = (gua *)calloc(res_len, sizeof(gua));
 
+    unsigned int carry = 0;
     for (int i = 0; i < res_len; i++) {
-        res.guas[res_len - 1 - i] = make_gua(acc[i] & 0x3F);
-    }
+        int idx_a = a.len - 1 - i;
+        int idx_b = b.len - 1 - i;
 
-    if ((get_val(res.guas[0]) >> 5) & 1) {
-        res.len++;
-        res.guas = (gua *) realloc(res.guas, res.len * sizeof(gua));
-        memmove(&res.guas[1], &res.guas[0], (res.len - 1) * sizeof(gua));
-        res.guas[0] = make_gua(0x00);
+        unsigned int va = (idx_a >= 0) ? get_val(a.guas[idx_a]) : 0;
+        unsigned int vb = (idx_b >= 0) ? get_val(b.guas[idx_b]) : 0;
+
+        unsigned int sum = va + vb + carry;
+        res.guas[res_len - 1 - i] = make_gua(sum & 0x3F);
+        carry = sum >> 6;
     }
     res.guas[0].yinyang = 0;
-
-    free(acc);
-    big_gua_free(&abs_a);
-    big_gua_free(&abs_b);
-
-    if (result_negative && !big_gua_is_zero(res)) {
-        big_gua neg = big_gua_negate(res);
-        big_gua_free(&res);
-        res = neg;
-    }
-
-    big_gua trimmed = big_gua_trim(res);
-    big_gua_free(&res);
-    return trimmed;
-}
-
-int big_gua_unsigned_cmp(big_gua a, big_gua b) {
-    int sa = 0, sb = 0;
-    while (sa < a.len - 1 && get_val(a.guas[sa]) == 0) sa++;
-    while (sb < b.len - 1 && get_val(b.guas[sb]) == 0) sb++;
-
-    int eff_a = a.len - sa;
-    int eff_b = b.len - sb;
-
-    if (eff_a != eff_b) return (eff_a > eff_b) ? 1 : -1;
-
-    for (int i = 0; i < eff_a; i++) {
-        unsigned char va = get_val(a.guas[sa + i]);
-        unsigned char vb = get_val(b.guas[sb + i]);
-        if (va > vb) return 1;
-        if (va < vb) return -1;
-    }
-    return 0;
+    return res;
 }
 
 big_gua big_gua_unsigned_sub(big_gua a, big_gua b) {
@@ -688,6 +652,189 @@ big_gua big_gua_unsigned_sub(big_gua a, big_gua b) {
     res.guas[0].yinyang = 0;
 
     return res;
+}
+
+static big_gua big_gua_trim_unsigned(big_gua a) {
+    int start = 0;
+    while (start < a.len - 1 && get_val(a.guas[start]) == 0) {
+        start++;
+    }
+    big_gua res;
+    res.len = a.len - start;
+    res.guas = (gua *)malloc(res.len * sizeof(gua));
+    for (int i = 0; i < res.len; i++) {
+        res.guas[i] = a.guas[start + i];
+    }
+    res.guas[0].yinyang = 0;
+    return res;
+}
+
+// Karatsuba
+static big_gua big_gua_mul_classical(big_gua a, big_gua b) {
+    int len_a = a.len;
+    int len_b = b.len;
+    int res_len = len_a + len_b;
+
+    unsigned int *acc = (unsigned int *)calloc(res_len, sizeof(unsigned int));
+
+    for (int i = 0; i < len_a; i++) {
+        unsigned char va = get_val(a.guas[len_a - 1 - i]);
+        if (va == 0) continue;
+        for (int j = 0; j < len_b; j++) {
+            unsigned char vb = get_val(b.guas[len_b - 1 - j]);
+            acc[i + j] += (unsigned int)va * vb;
+        }
+    }
+
+    for (int i = 0; i < res_len - 1; i++) {
+        acc[i + 1] += acc[i] >> 6;
+        acc[i] &= 0x3F;
+    }
+
+    big_gua res;
+    res.len = res_len;
+    res.guas = (gua *)calloc(res_len, sizeof(gua));
+    for (int i = 0; i < res_len; i++) {
+        res.guas[res_len - 1 - i] = make_gua(acc[i] & 0x3F);
+    }
+    res.guas[0].yinyang = 0;
+
+    free(acc);
+
+    big_gua trimmed = big_gua_trim_unsigned(res);
+    big_gua_free(&res);
+    return trimmed;
+}
+
+static big_gua big_gua_mul_karatsuba(big_gua a, big_gua b) {
+    big_gua ta = big_gua_trim_unsigned(a);
+    big_gua tb = big_gua_trim_unsigned(b);
+
+    if (ta.len <= KARATSUBA_THRESHOLD || tb.len <= KARATSUBA_THRESHOLD) {
+        big_gua result = big_gua_mul_classical(ta, tb);
+        big_gua_free(&ta);
+        big_gua_free(&tb);
+        return result;
+    }
+
+    int n = (ta.len > tb.len) ? ta.len : tb.len;
+    int m = n / 2;
+
+    int a0_len = (m < ta.len) ? m : ta.len;
+    int a1_len = ta.len - a0_len;
+    int b0_len = (m < tb.len) ? m : tb.len;
+    int b1_len = tb.len - b0_len;
+
+    big_gua a0 = big_gua_slice(ta, ta.len - a0_len, a0_len);
+    big_gua a1 = (a1_len > 0) ? big_gua_slice(ta, 0, a1_len) : big_gua_zero();
+    big_gua b0 = big_gua_slice(tb, tb.len - b0_len, b0_len);
+    big_gua b1 = (b1_len > 0) ? big_gua_slice(tb, 0, b1_len) : big_gua_zero();
+
+    big_gua_free(&ta);
+    big_gua_free(&tb);
+
+    big_gua z0, z2, z1;
+
+    big_gua a0_plus_a1 = big_gua_unsigned_add(a0, a1);
+    big_gua b0_plus_b1 = big_gua_unsigned_add(b0, b1);
+
+#pragma omp task shared(z0) if(a0.len + b0.len > KARATSUBA_THRESHOLD * 2)
+    z0 = big_gua_mul_karatsuba(a0, b0);
+
+#pragma omp task shared(z2) if(a1.len + b1.len > KARATSUBA_THRESHOLD * 2)
+    z2 = big_gua_mul_karatsuba(a1, b1);
+
+    big_gua z1_full = big_gua_mul_karatsuba(a0_plus_a1, b0_plus_b1);
+
+    #pragma omp taskwait
+
+    big_gua z1_tmp = big_gua_unsigned_sub(z1_full, z0);
+    z1 = big_gua_unsigned_sub(z1_tmp, z2);
+
+    big_gua_free(&z1_full);
+    big_gua_free(&z1_tmp);
+    big_gua_free(&a0);
+    big_gua_free(&a1);
+    big_gua_free(&b0);
+    big_gua_free(&b1);
+    big_gua_free(&a0_plus_a1);
+    big_gua_free(&b0_plus_b1);
+
+    big_gua z2_shifted = big_gua_shift_left(z2, 2 * m);
+    big_gua z1_shifted = big_gua_shift_left(z1, m);
+
+    big_gua sum1 = big_gua_unsigned_add(z2_shifted, z1_shifted);
+    big_gua result = big_gua_unsigned_add(sum1, z0);
+
+    big_gua_free(&z0);
+    big_gua_free(&z1);
+    big_gua_free(&z2);
+    big_gua_free(&z2_shifted);
+    big_gua_free(&z1_shifted);
+    big_gua_free(&sum1);
+
+    big_gua trimmed = big_gua_trim_unsigned(result);
+    big_gua_free(&result);
+    return trimmed;
+}
+
+big_gua big_gua_mul(big_gua a, big_gua b) {
+    int sign_a = a.guas[0].yinyang;
+    int sign_b = b.guas[0].yinyang;
+    int result_negative = sign_a ^ sign_b;
+
+    big_gua abs_a = big_gua_abs(a);
+    big_gua abs_b = big_gua_abs(b);
+
+    big_gua res;
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            res = big_gua_mul_karatsuba(abs_a, abs_b);
+        }
+    }
+
+    if ((get_val(res.guas[0]) >> 5) & 1) {
+        res.len++;
+        res.guas = (gua *)realloc(res.guas, res.len * sizeof(gua));
+        memmove(&res.guas[1], &res.guas[0], (res.len - 1) * sizeof(gua));
+        res.guas[0] = make_gua(0x00);
+    }
+    res.guas[0].yinyang = 0;
+
+    big_gua_free(&abs_a);
+    big_gua_free(&abs_b);
+
+    if (result_negative && !big_gua_is_zero(res)) {
+        big_gua neg = big_gua_negate(res);
+        big_gua_free(&res);
+        res = neg;
+    }
+
+    big_gua trimmed = big_gua_trim(res);
+    big_gua_free(&res);
+    return trimmed;
+}
+
+
+int big_gua_unsigned_cmp(big_gua a, big_gua b) {
+    int sa = 0, sb = 0;
+    while (sa < a.len - 1 && get_val(a.guas[sa]) == 0) sa++;
+    while (sb < b.len - 1 && get_val(b.guas[sb]) == 0) sb++;
+
+    int eff_a = a.len - sa;
+    int eff_b = b.len - sb;
+
+    if (eff_a != eff_b) return (eff_a > eff_b) ? 1 : -1;
+
+    for (int i = 0; i < eff_a; i++) {
+        unsigned char va = get_val(a.guas[sa + i]);
+        unsigned char vb = get_val(b.guas[sb + i]);
+        if (va > vb) return 1;
+        if (va < vb) return -1;
+    }
+    return 0;
 }
 
 big_gua big_gua_shift_left_one(big_gua a) {
