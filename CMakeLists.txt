@@ -14,10 +14,17 @@ include_directories(${SDL2_INCLUDE_DIRS})
 find_library(SDL2_MIXER_LIBRARY NAMES SDL2_mixer)
 find_path(SDL2_MIXER_INCLUDE_DIR NAMES SDL_mixer.h PATH_SUFFIXES SDL2)
 
-add_executable(JiajingOS main.c
+set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/libomp" ${CMAKE_PREFIX_PATH})
+find_package(OpenMP REQUIRED)
+
+add_executable(Zhouyi-Algebra
+        main.c
         zhouyi_algebra.c
         zhouyi_algebra.h
         suangua.c
         suangua.h)
 
-target_link_libraries(JiajingOS ${SDL2_LIBRARIES} ${SDL2_MIXER_LIBRARY})
+target_link_libraries(Zhouyi-Algebra
+        ${SDL2_LIBRARIES}
+        ${SDL2_MIXER_LIBRARY}
+        OpenMP::OpenMP_C)

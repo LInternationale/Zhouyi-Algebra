@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <omp.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -31,27 +32,35 @@ gua make_gua(unsigned char val) {
     return g;
 }
 
-const char* get_trigram_name(unsigned char val) {
-    const char* names[8] = {"坤", "震", "坎", "兑", "艮", "离", "巽", "乾"};
+const char *get_trigram_name(unsigned char val) {
+    const char *names[8] = {"坤", "震", "坎", "兑", "艮", "离", "巽", "乾"};
     return names[val & 0x07];
 }
 
-const char* get_xiang_zhuan(unsigned char val) {
-    const char* xiang[64] = {
-        "坤卦。象曰：地势坤，君子以厚德载物。", "复卦。象曰：雷在地中，复。先王以至日闭关。", "师卦。象曰：地中有水，师。君子以容民畜众。", "临卦。象曰：泽上有地，临。君子以教思无穷。", "谦卦。象曰：地中有山，谦。君子以裒多益寡。", "明夷卦。象曰：明入地中，明夷。君子以莅众，用晦而明。", "升卦。象曰：地中生木，升。君子以顺德，积小以高大。", "泰卦。象曰：天地交，泰。后以财成天地之道。",
-        "豫卦。象曰：雷出地奋，豫。先王以作乐崇德。", "震卦。象曰：洊雷，震。君子以恐惧修省。", "解卦。象曰：雷雨作，解。君子以赦过宥罪。", "归妹卦。象曰：泽上有雷，归妹。君子以永终知敝。", "小过卦。象曰：山上有雷，小过。君子以行过乎恭。", "丰卦。象曰：雷电皆至，丰。君子以折狱致刑。", "恒卦。象曰：雷风，恒。君子以立不易方。", "大壮卦。象曰：雷在天上，大壮。君子以非礼弗履。",
-        "比卦。象曰：地上有水，比。先王以建万国，亲诸侯。", "屯卦。象曰：云雷，屯。君子以经纶。", "坎卦。象曰：水洊至，习坎。君子以常德行，习教事。", "节卦。象曰：泽上有水，节。君子以制数度，议德行。", "蹇卦。象曰：山上有水，蹇。君子以反身修德。", "既济卦。象曰：水在火上，既济。君子以思患而预防之。", "井卦。象曰：木上有水，井。君子以劳民劝相。", "需卦。象曰：云上于天，需。君子以饮食宴乐。",
-        "萃卦。象曰：泽上于地，萃。君子以除戎器，戒不虞。", "随卦。象曰：泽中有雷，随。君子以向晦入宴息。", "困卦。象曰：泽无水，困。君子以致命遂志。", "兑卦。象曰：丽泽，兑。君子以朋友讲习。", "咸卦。象曰：山上有泽，咸。君子以虚受人。", "革卦。象曰：泽中有火，革。君子以治历明时。", "大过卦。象曰：泽灭木，大过。君子以独立不惧。", "夬卦。象曰：泽上于天，夬。君子以施禄及下。",
-        "剥卦。象曰：山附于地，剥。上以厚下安宅。", "颐卦。象曰：山下有雷，颐。君子以慎言语，节饮食。", "蒙卦。象曰：山下出泉，蒙。君子以果行育德。", "损卦。象曰：山下有泽，损。君子以惩忿窒欲。", "艮卦。象曰：兼山，艮。君子以思不出其位。", "贲卦。象曰：山下有火，贲。君子以明庶政，无敢折狱。", "蛊卦。象曰：山下有风，蛊。君子以振民育德。", "大畜卦。象曰：天在山中，大畜。君子以多识前言往行。",
-        "晋卦。象曰：明出地上，晋。君子以自昭明德。", "噬嗑卦。象曰：雷电噬嗑。先王以明罚敕法。", "未济卦。象曰：火在水上，未济。君子以慎辨物居方。", "睽卦。象曰：上火下泽，睽。君子以同而异。", "旅卦。象曰：山上有火，旅。君子以明慎用刑。", "离卦。象曰：明两作，离。大人以继明照于四方。", "鼎卦。象曰：木上有火，鼎。君子以正位凝命。", "大有卦。象曰：火在天上，大有。君子以遏恶扬善。",
-        "观卦。象曰：风行地上，观。先王以省方观民设教。", "益卦。象曰：风雷，益。君子以见善则迁，有过则改。", "涣卦。象曰：风行水上，涣。先王以享于帝立庙。", "中孚卦。象曰：泽上有风，中孚。君子以议狱缓死。", "渐卦。象曰：山上有木，渐。君子以居贤德善俗。", "家人卦。象曰：风自火出，家人。君子以言有物而行有恒。", "巽卦。象曰：随风，巽。君子以申命行事。", "小畜卦。象曰：风行天上，小畜。君子以懿文德。",
-        "否卦。象曰：天地不交，否。君子以俭德辟难。", "无妄卦。象曰：天下雷行，物与无妄。先王以茂对时育万物。", "讼卦。象曰：天与水违行，讼。君子以作事谋始。", "履卦。象曰：上天下泽，履。君子以辨上下，定民志。", "遁卦。象曰：天下有山，遁。君子以远小人，不恶而严。", "同人卦。象曰：天与火，同人。君子以类族辨物。", "姤卦。象曰：天下有风，姤。后以施命诰四方。", "乾卦。象曰：天行健，君子以自强不息。"
+const char *get_xiang_zhuan(unsigned char val) {
+    const char *xiang[64] = {
+        "坤卦。象曰：地势坤，君子以厚德载物。", "复卦。象曰：雷在地中，复。先王以至日闭关。", "师卦。象曰：地中有水，师。君子以容民畜众。", "临卦。象曰：泽上有地，临。君子以教思无穷。",
+        "谦卦。象曰：地中有山，谦。君子以裒多益寡。", "明夷卦。象曰：明入地中，明夷。君子以莅众，用晦而明。", "升卦。象曰：地中生木，升。君子以顺德，积小以高大。", "泰卦。象曰：天地交，泰。后以财成天地之道。",
+        "豫卦。象曰：雷出地奋，豫。先王以作乐崇德。", "震卦。象曰：洊雷，震。君子以恐惧修省。", "解卦。象曰：雷雨作，解。君子以赦过宥罪。", "归妹卦。象曰：泽上有雷，归妹。君子以永终知敝。",
+        "小过卦。象曰：山上有雷，小过。君子以行过乎恭。", "丰卦。象曰：雷电皆至，丰。君子以折狱致刑。", "恒卦。象曰：雷风，恒。君子以立不易方。", "大壮卦。象曰：雷在天上，大壮。君子以非礼弗履。",
+        "比卦。象曰：地上有水，比。先王以建万国，亲诸侯。", "屯卦。象曰：云雷，屯。君子以经纶。", "坎卦。象曰：水洊至，习坎。君子以常德行，习教事。", "节卦。象曰：泽上有水，节。君子以制数度，议德行。",
+        "蹇卦。象曰：山上有水，蹇。君子以反身修德。", "既济卦。象曰：水在火上，既济。君子以思患而预防之。", "井卦。象曰：木上有水，井。君子以劳民劝相。", "需卦。象曰：云上于天，需。君子以饮食宴乐。",
+        "萃卦。象曰：泽上于地，萃。君子以除戎器，戒不虞。", "随卦。象曰：泽中有雷，随。君子以向晦入宴息。", "困卦。象曰：泽无水，困。君子以致命遂志。", "兑卦。象曰：丽泽，兑。君子以朋友讲习。",
+        "咸卦。象曰：山上有泽，咸。君子以虚受人。", "革卦。象曰：泽中有火，革。君子以治历明时。", "大过卦。象曰：泽灭木，大过。君子以独立不惧。", "夬卦。象曰：泽上于天，夬。君子以施禄及下。",
+        "剥卦。象曰：山附于地，剥。上以厚下安宅。", "颐卦。象曰：山下有雷，颐。君子以慎言语，节饮食。", "蒙卦。象曰：山下出泉，蒙。君子以果行育德。", "损卦。象曰：山下有泽，损。君子以惩忿窒欲。",
+        "艮卦。象曰：兼山，艮。君子以思不出其位。", "贲卦。象曰：山下有火，贲。君子以明庶政，无敢折狱。", "蛊卦。象曰：山下有风，蛊。君子以振民育德。", "大畜卦。象曰：天在山中，大畜。君子以多识前言往行。",
+        "晋卦。象曰：明出地上，晋。君子以自昭明德。", "噬嗑卦。象曰：雷电噬嗑。先王以明罚敕法。", "未济卦。象曰：火在水上，未济。君子以慎辨物居方。", "睽卦。象曰：上火下泽，睽。君子以同而异。",
+        "旅卦。象曰：山上有火，旅。君子以明慎用刑。", "离卦。象曰：明两作，离。大人以继明照于四方。", "鼎卦。象曰：木上有火，鼎。君子以正位凝命。", "大有卦。象曰：火在天上，大有。君子以遏恶扬善。",
+        "观卦。象曰：风行地上，观。先王以省方观民设教。", "益卦。象曰：风雷，益。君子以见善则迁，有过则改。", "涣卦。象曰：风行水上，涣。先王以享于帝立庙。", "中孚卦。象曰：泽上有风，中孚。君子以议狱缓死。",
+        "渐卦。象曰：山上有木，渐。君子以居贤德善俗。", "家人卦。象曰：风自火出，家人。君子以言有物而行有恒。", "巽卦。象曰：随风，巽。君子以申命行事。", "小畜卦。象曰：风行天上，小畜。君子以懿文德。",
+        "否卦。象曰：天地不交，否。君子以俭德辟难。", "无妄卦。象曰：天下雷行，物与无妄。先王以茂对时育万物。", "讼卦。象曰：天与水违行，讼。君子以作事谋始。", "履卦。象曰：上天下泽，履。君子以辨上下，定民志。",
+        "遁卦。象曰：天下有山，遁。君子以远小人，不恶而严。", "同人卦。象曰：天与火，同人。君子以类族辨物。", "姤卦。象曰：天下有风，姤。后以施命诰四方。", "乾卦。象曰：天行健，君子以自强不息。"
     };
     return xiang[val & 0x3F];
 }
 
-void num_to_zh(unsigned char val, char* buf) {
-    const char* digits[] = {"零", "一", "二", "三", "四", "五", "六", "七", "八", "九"};
+void num_to_zh(unsigned char val, char *buf) {
+    const char *digits[] = {"零", "一", "二", "三", "四", "五", "六", "七", "八", "九"};
     if (val <= 9) {
         sprintf(buf, "%s", digits[val]);
     } else if (val == 10) {
@@ -101,8 +110,8 @@ void print_gua(gua g) {
     printf("\n\n");
 }
 
-const char* get_unicode_gua(unsigned char val) {
-    const char* unicode_xiang[64] = {
+const char *get_unicode_gua(unsigned char val) {
+    const char *unicode_xiang[64] = {
         "䷁", "䷗", "䷆", "䷒", "䷎", "䷣", "䷭", "䷊",
         "䷏", "䷲", "䷧", "䷵", "䷽", "䷶", "䷟", "䷡",
         "䷇", "䷂", "䷜", "䷻", "䷦", "䷾", "䷯", "䷄",
@@ -192,13 +201,19 @@ gua bian(gua a, int yao) {
     gua res = a;
     res.overflow = 0;
 
-    switch(yao) {
-        case 1: res.bit0 = !res.bit0; break;
-        case 2: res.bit1 = !res.bit1; break;
-        case 3: res.bit2 = !res.bit2; break;
-        case 4: res.bit3 = !res.bit3; break;
-        case 5: res.bit4 = !res.bit4; break;
-        case 6: res.bit5 = !res.bit5; break;
+    switch (yao) {
+        case 1: res.bit0 = !res.bit0;
+            break;
+        case 2: res.bit1 = !res.bit1;
+            break;
+        case 3: res.bit2 = !res.bit2;
+            break;
+        case 4: res.bit3 = !res.bit3;
+            break;
+        case 5: res.bit4 = !res.bit4;
+            break;
+        case 6: res.bit5 = !res.bit5;
+            break;
         default: break;
     }
     return res;
@@ -267,13 +282,13 @@ gua gua_add(gua a, gua b) {
     return res;
 }
 
-big_gua big_gua_from_string(const char* str) {
+big_gua big_gua_from_string(const char *str) {
     int is_negative = (str[0] == '-');
     if (is_negative) str++;
 
     big_gua bg;
     bg.len = 1;
-    bg.guas = (gua*)calloc(1, sizeof(gua));
+    bg.guas = (gua *) calloc(1, sizeof(gua));
 
     while (*str) {
         int digit = *str - '0';
@@ -288,7 +303,7 @@ big_gua big_gua_from_string(const char* str) {
 
         while (carry > 0) {
             bg.len++;
-            bg.guas = (gua*)realloc(bg.guas, bg.len * sizeof(gua));
+            bg.guas = (gua *) realloc(bg.guas, bg.len * sizeof(gua));
             memmove(&bg.guas[1], &bg.guas[0], (bg.len - 1) * sizeof(gua));
             bg.guas[0] = make_gua(carry & 0x3F);
             carry >>= 6;
@@ -309,7 +324,7 @@ big_gua big_gua_from_string(const char* str) {
 
         if (carry) {
             bg.len++;
-            bg.guas = (gua*)realloc(bg.guas, bg.len * sizeof(gua));
+            bg.guas = (gua *) realloc(bg.guas, bg.len * sizeof(gua));
             memmove(&bg.guas[1], &bg.guas[0], (bg.len - 1) * sizeof(gua));
             bg.guas[0] = make_gua(carry & 0x3F);
         }
@@ -319,7 +334,7 @@ big_gua big_gua_from_string(const char* str) {
     int msb_sign = (msb_val >> 5) & 1;
     if ((!is_negative && msb_sign == 1) || (is_negative && msb_sign == 0)) {
         bg.len++;
-        bg.guas = (gua*)realloc(bg.guas, bg.len * sizeof(gua));
+        bg.guas = (gua *) realloc(bg.guas, bg.len * sizeof(gua));
         memmove(&bg.guas[1], &bg.guas[0], (bg.len - 1) * sizeof(gua));
         bg.guas[0] = make_gua(is_negative ? 0x3F : 0x00);
     }
@@ -328,7 +343,7 @@ big_gua big_gua_from_string(const char* str) {
     return bg;
 }
 
-void big_gua_free(big_gua* bg) {
+void big_gua_free(big_gua *bg) {
     if (bg->guas) {
         free(bg->guas);
         bg->guas = NULL;
@@ -336,9 +351,9 @@ void big_gua_free(big_gua* bg) {
     bg->len = 0;
 }
 
-char* big_gua_to_string(big_gua bg) {
+char *big_gua_to_string(big_gua bg) {
     if (bg.len == 0) {
-        char* zero_str = (char*)malloc(2);
+        char *zero_str = (char *) malloc(2);
         strcpy(zero_str, "0");
         return zero_str;
     }
@@ -347,7 +362,7 @@ char* big_gua_to_string(big_gua bg) {
 
     big_gua copy;
     copy.len = bg.len;
-    copy.guas = (gua*)malloc(bg.len * sizeof(gua));
+    copy.guas = (gua *) malloc(bg.len * sizeof(gua));
 
     if (is_negative) {
         unsigned char carry = 1;
@@ -363,13 +378,16 @@ char* big_gua_to_string(big_gua bg) {
     }
 
     int max_chars = bg.len * 2 + 3;
-    char* temp = (char*)malloc(max_chars);
+    char *temp = (char *) malloc(max_chars);
     int temp_idx = 0;
 
     while (1) {
         int is_zero = 1;
         for (int i = 0; i < copy.len; i++) {
-            if (get_val(copy.guas[i]) != 0) { is_zero = 0; break; }
+            if (get_val(copy.guas[i]) != 0) {
+                is_zero = 0;
+                break;
+            }
         }
         if (is_zero) break;
 
@@ -384,7 +402,7 @@ char* big_gua_to_string(big_gua bg) {
 
     if (temp_idx == 0) temp[temp_idx++] = '0';
 
-    char* result = (char*)malloc(temp_idx + 2);
+    char *result = (char *) malloc(temp_idx + 2);
     int buf_idx = 0;
 
     if (is_negative) result[buf_idx++] = '-';
@@ -406,7 +424,7 @@ big_gua big_gua_add(big_gua a, big_gua b) {
 
     big_gua res;
     res.len = res_len;
-    res.guas = (gua*)calloc(res_len, sizeof(gua));
+    res.guas = (gua *) calloc(res_len, sizeof(gua));
 
     unsigned char carry = 0;
 
@@ -438,7 +456,7 @@ void print_big_gua_tight(big_gua bg) {
 
     big_gua abs_bg;
     abs_bg.len = bg.len;
-    abs_bg.guas = (gua*)malloc(bg.len * sizeof(gua));
+    abs_bg.guas = (gua *) malloc(bg.len * sizeof(gua));
 
     if (is_negative) {
         unsigned char carry = 1;
@@ -464,7 +482,7 @@ void print_big_gua_tight(big_gua bg) {
 big_gua big_gua_negate(big_gua a) {
     big_gua res;
     res.len = a.len;
-    res.guas = (gua*)malloc(res.len * sizeof(gua));
+    res.guas = (gua *) malloc(res.len * sizeof(gua));
 
     for (int i = 0; i < res.len; i++) {
         res.guas[i] = make_gua((~get_val(a.guas[i])) & 0x3F);
@@ -479,7 +497,7 @@ big_gua big_gua_negate(big_gua a) {
 
     if (carry) {
         res.len++;
-        res.guas = (gua*)realloc(res.guas, res.len * sizeof(gua));
+        res.guas = (gua *) realloc(res.guas, res.len * sizeof(gua));
         memmove(&res.guas[1], &res.guas[0], (res.len - 1) * sizeof(gua));
         res.guas[0] = make_gua(carry & 0x3F);
     }
@@ -493,7 +511,7 @@ big_gua big_gua_negate(big_gua a) {
 big_gua big_gua_zero(void) {
     big_gua res;
     res.len = 1;
-    res.guas = (gua*)calloc(1, sizeof(gua));
+    res.guas = (gua *) calloc(1, sizeof(gua));
     res.guas[0].yinyang = 0;
     return res;
 }
@@ -511,7 +529,7 @@ big_gua big_gua_abs(big_gua a) {
     }
     big_gua res;
     res.len = a.len;
-    res.guas = (gua*)malloc(res.len * sizeof(gua));
+    res.guas = (gua *) malloc(res.len * sizeof(gua));
     for (int i = 0; i < res.len; i++) {
         res.guas[i] = a.guas[i];
     }
@@ -535,7 +553,7 @@ big_gua big_gua_trim(big_gua a) {
     }
 
     res.len = a.len - start;
-    res.guas = (gua*)malloc(res.len * sizeof(gua));
+    res.guas = (gua *) malloc(res.len * sizeof(gua));
     for (int i = 0; i < res.len; i++) {
         res.guas[i] = a.guas[start + i];
     }
@@ -555,15 +573,31 @@ big_gua big_gua_mul(big_gua a, big_gua b) {
     int len_b = abs_b.len;
     int res_len = len_a + len_b + 1;
 
-    unsigned int* acc = (unsigned int*)calloc(res_len, sizeof(unsigned int));
+    unsigned int *acc = (unsigned int *) calloc(res_len, sizeof(unsigned int));
 
-    for (int i = 0; i < len_a; i++) {
-        unsigned char va = get_val(abs_a.guas[len_a - 1 - i]);
-        for (int j = 0; j < len_b; j++) {
-            unsigned char vb = get_val(abs_b.guas[len_b - 1 - j]);
-            acc[i + j] += (unsigned int)va * vb;
+#pragma omp parallel
+    {
+        unsigned int *local_acc = (unsigned int *) calloc(res_len, sizeof(unsigned int));
+#pragma omp for
+        for (int i = 0; i < len_a; i++) {
+            unsigned char va = get_val(abs_a.guas[len_a - 1 - i]);
+            for (int j = 0; j < len_b; j++) {
+                unsigned char vb = get_val(abs_b.guas[len_b - 1 - j]);
+                local_acc[i + j] += (unsigned int) va * vb;
+            }
         }
+
+
+#pragma omp critical
+        {
+            for (int k = 0; k < res_len; k++) {
+                acc[k] += local_acc[k];
+            }
+        }
+
+        free(local_acc);
     }
+
 
     for (int i = 0; i < res_len - 1; i++) {
         acc[i + 1] += acc[i] >> 6;
@@ -572,7 +606,7 @@ big_gua big_gua_mul(big_gua a, big_gua b) {
 
     big_gua res;
     res.len = res_len;
-    res.guas = (gua*)calloc(res_len, sizeof(gua));
+    res.guas = (gua *) calloc(res_len, sizeof(gua));
 
     for (int i = 0; i < res_len; i++) {
         res.guas[res_len - 1 - i] = make_gua(acc[i] & 0x3F);
@@ -580,7 +614,7 @@ big_gua big_gua_mul(big_gua a, big_gua b) {
 
     if ((get_val(res.guas[0]) >> 5) & 1) {
         res.len++;
-        res.guas = (gua*)realloc(res.guas, res.len * sizeof(gua));
+        res.guas = (gua *) realloc(res.guas, res.len * sizeof(gua));
         memmove(&res.guas[1], &res.guas[0], (res.len - 1) * sizeof(gua));
         res.guas[0] = make_gua(0x00);
     }
@@ -625,7 +659,7 @@ big_gua big_gua_unsigned_sub(big_gua a, big_gua b) {
 
     big_gua res;
     res.len = max_len;
-    res.guas = (gua*)calloc(res.len, sizeof(gua));
+    res.guas = (gua *) calloc(res.len, sizeof(gua));
 
     int borrow = 0;
     for (int i = 0; i < max_len; i++) {
@@ -647,7 +681,7 @@ big_gua big_gua_unsigned_sub(big_gua a, big_gua b) {
 
     if ((get_val(res.guas[0]) >> 5) & 1) {
         res.len++;
-        res.guas = (gua*)realloc(res.guas, res.len * sizeof(gua));
+        res.guas = (gua *) realloc(res.guas, res.len * sizeof(gua));
         memmove(&res.guas[1], &res.guas[0], (res.len - 1) * sizeof(gua));
         res.guas[0] = make_gua(0x00);
     }
@@ -659,7 +693,7 @@ big_gua big_gua_unsigned_sub(big_gua a, big_gua b) {
 big_gua big_gua_shift_left_one(big_gua a) {
     big_gua res;
     res.len = a.len + 1;
-    res.guas = (gua*)calloc(res.len, sizeof(gua));
+    res.guas = (gua *) calloc(res.len, sizeof(gua));
 
     for (int i = 0; i < a.len; i++) {
         res.guas[i] = a.guas[i];
@@ -673,7 +707,7 @@ big_gua big_gua_shift_left_one(big_gua a) {
 big_gua big_gua_copy(big_gua a) {
     big_gua res;
     res.len = a.len;
-    res.guas = (gua*)malloc(res.len * sizeof(gua));
+    res.guas = (gua *) malloc(res.len * sizeof(gua));
     for (int i = 0; i < res.len; i++) {
         res.guas[i] = a.guas[i];
     }
@@ -681,7 +715,7 @@ big_gua big_gua_copy(big_gua a) {
 }
 
 void big_gua_unsigned_divmod(big_gua a, big_gua b,
-                              big_gua* quotient, big_gua* remainder) {
+                             big_gua *quotient, big_gua *remainder) {
     if (big_gua_unsigned_cmp(a, b) < 0) {
         *quotient = big_gua_zero();
         *remainder = big_gua_copy(a);
@@ -699,7 +733,7 @@ void big_gua_unsigned_divmod(big_gua a, big_gua b,
     eff_b = b.len - sb;
 
     int q_len = eff_a - eff_b + 1;
-    unsigned char* q_digits = (unsigned char*)calloc(q_len, sizeof(unsigned char));
+    unsigned char *q_digits = (unsigned char *) calloc(q_len, sizeof(unsigned char));
 
     big_gua rem = big_gua_copy(a);
 
@@ -708,7 +742,7 @@ void big_gua_unsigned_divmod(big_gua a, big_gua b,
 
         big_gua shifted_b;
         shifted_b.len = b.len + shift;
-        shifted_b.guas = (gua*)calloc(shifted_b.len, sizeof(gua));
+        shifted_b.guas = (gua *) calloc(shifted_b.len, sizeof(gua));
         for (int k = 0; k < b.len; k++) {
             shifted_b.guas[k] = b.guas[k];
         }
@@ -724,11 +758,11 @@ void big_gua_unsigned_divmod(big_gua a, big_gua b,
             int sb_len = shifted_b.len;
             big_gua product;
             product.len = sb_len + 1;
-            product.guas = (gua*)calloc(product.len, sizeof(gua));
+            product.guas = (gua *) calloc(product.len, sizeof(gua));
 
             unsigned int carry = 0;
             for (int k = sb_len - 1; k >= 0; k--) {
-                unsigned int val = (unsigned int)get_val(shifted_b.guas[k]) * mid + carry;
+                unsigned int val = (unsigned int) get_val(shifted_b.guas[k]) * mid + carry;
                 product.guas[k + 1] = make_gua(val & 0x3F);
                 carry = val >> 6;
             }
@@ -736,7 +770,7 @@ void big_gua_unsigned_divmod(big_gua a, big_gua b,
 
             if ((get_val(product.guas[0]) >> 5) & 1) {
                 product.len++;
-                product.guas = (gua*)realloc(product.guas, product.len * sizeof(gua));
+                product.guas = (gua *) realloc(product.guas, product.len * sizeof(gua));
                 memmove(&product.guas[1], &product.guas[0], (product.len - 1) * sizeof(gua));
                 product.guas[0] = make_gua(0);
             }
@@ -745,10 +779,16 @@ void big_gua_unsigned_divmod(big_gua a, big_gua b,
             int cmp = big_gua_unsigned_cmp(product, rem);
             if (cmp <= 0) {
                 best = mid;
-                if (mid == 63) { big_gua_free(&product); break; }
+                if (mid == 63) {
+                    big_gua_free(&product);
+                    break;
+                }
                 lo = mid + 1;
             } else {
-                if (mid == 0) { big_gua_free(&product); break; }
+                if (mid == 0) {
+                    big_gua_free(&product);
+                    break;
+                }
                 hi = mid - 1;
             }
             big_gua_free(&product);
@@ -760,11 +800,11 @@ void big_gua_unsigned_divmod(big_gua a, big_gua b,
             int sb_len = shifted_b.len;
             big_gua product;
             product.len = sb_len + 1;
-            product.guas = (gua*)calloc(product.len, sizeof(gua));
+            product.guas = (gua *) calloc(product.len, sizeof(gua));
 
             unsigned int carry = 0;
             for (int k = sb_len - 1; k >= 0; k--) {
-                unsigned int val = (unsigned int)get_val(shifted_b.guas[k]) * best + carry;
+                unsigned int val = (unsigned int) get_val(shifted_b.guas[k]) * best + carry;
                 product.guas[k + 1] = make_gua(val & 0x3F);
                 carry = val >> 6;
             }
@@ -772,7 +812,7 @@ void big_gua_unsigned_divmod(big_gua a, big_gua b,
 
             if ((get_val(product.guas[0]) >> 5) & 1) {
                 product.len++;
-                product.guas = (gua*)realloc(product.guas, product.len * sizeof(gua));
+                product.guas = (gua *) realloc(product.guas, product.len * sizeof(gua));
                 memmove(&product.guas[1], &product.guas[0], (product.len - 1) * sizeof(gua));
                 product.guas[0] = make_gua(0);
             }
@@ -789,7 +829,7 @@ void big_gua_unsigned_divmod(big_gua a, big_gua b,
 
     int total_q_len = q_len + 1;
     quotient->len = total_q_len;
-    quotient->guas = (gua*)calloc(total_q_len, sizeof(gua));
+    quotient->guas = (gua *) calloc(total_q_len, sizeof(gua));
     quotient->guas[0] = make_gua(0);
     quotient->guas[0].yinyang = 0;
     for (int i = 0; i < q_len; i++) {
