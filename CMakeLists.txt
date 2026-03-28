@@ -1,20 +1,11 @@
-cmake_minimum_required(VERSION 4.1)
+cmake_minimum_required(VERSION 3.20)
 project(Zhouyi-Algebra C)
 
 set(CMAKE_C_STANDARD 11)
-
-if(EXISTS "/opt/homebrew/include")
-    include_directories("/opt/homebrew/include")
-    link_directories("/opt/homebrew/lib")
-endif()
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 find_package(SDL2 REQUIRED)
-include_directories(${SDL2_INCLUDE_DIRS})
-
-find_library(SDL2_MIXER_LIBRARY NAMES SDL2_mixer)
-find_path(SDL2_MIXER_INCLUDE_DIR NAMES SDL_mixer.h PATH_SUFFIXES SDL2)
-
-set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/libomp" ${CMAKE_PREFIX_PATH})
+find_package(SDL2_mixer REQUIRED)
 find_package(OpenMP REQUIRED)
 
 add_executable(Zhouyi-Algebra
@@ -24,7 +15,11 @@ add_executable(Zhouyi-Algebra
         suangua.c
         suangua.h)
 
-target_link_libraries(Zhouyi-Algebra
+target_include_directories(Zhouyi-Algebra PRIVATE
+        ${SDL2_INCLUDE_DIRS}
+        ${SDL2_MIXER_INCLUDE_DIR})
+
+target_link_libraries(Zhouyi-Algebra PRIVATE
         ${SDL2_LIBRARIES}
         ${SDL2_MIXER_LIBRARY}
         OpenMP::OpenMP_C)

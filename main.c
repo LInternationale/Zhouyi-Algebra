@@ -106,3 +106,16 @@ int main() {
     printf("练得身形似鹤形，千株松下两函经；我来问道无余说，云在青天水在瓶。\n");
     return 0;
 }
+
+// int main() {
+//
+//     big_gua a = big_gua_from_string("123456789012345678901234567890");
+//     big_gua b = big_gua_from_string("123456789012345678901234567890");
+//     big_gua c = big_gua_mul(a, b);
+//     printf("%s\n", big_gua_to_string(c));
+//     print_big_gua_tight(c);
+//     printf("\n");
+//     gua g = c.guas[0];
+//     print_gua(g);
+//     return 0;
+// }

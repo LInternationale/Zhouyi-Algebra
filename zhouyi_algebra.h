@@ -33,7 +33,7 @@ gua zong(gua a);
 gua hu(gua a);
 gua jiao(gua a);
 gua bian(gua a, int yao);
-gua gua_and(gua a, gua b);
+// gua gua_and(gua a, gua b);
 gua gua_or(gua a, gua b);
 gua gua_xor(gua a, gua b);
 gua gua_add(gua a, gua b);
